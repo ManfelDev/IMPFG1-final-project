@@ -37,6 +37,16 @@ tiles = math.ceil(SCREEN_WIDTH / bg_width) + 1
 # Load the lives image
 heart_image = pygame.image.load("images/heart.png")
 
+# Sounds
+pygame.mixer.init()
+buttonsSound = pygame.mixer.Sound("sounds/buttons.wav")
+explosion = pygame.mixer.Sound("sounds/explosion.wav")
+life_gained = pygame.mixer.Sound("sounds/life_gained.wav")
+life_lost = pygame.mixer.Sound("sounds/life_lost.wav")
+corn_collected = pygame.mixer.Sound("sounds/corn_collected.wav")
+game_over = pygame.mixer.Sound("sounds/game_over.wav")
+windSound = pygame.mixer.Sound("sounds/wind.wav")
+droneSound = pygame.mixer.Sound("sounds/drone.wav")
 
 ################################ PLAYER ################################
 class Player(object):
@@ -158,6 +168,7 @@ class Blade(object):
         self.radius = 5 # radius of rotation
         self.spawn_timer = random.randint(7500,10000) / (player.difficulty / 4)
         self.update_collider()
+        self.isBladePlaying = False
         
     def update(self):
         self.x -= random.randint(1,2) + player.difficulty
@@ -184,6 +195,7 @@ class Wind:
         self.spawn_timer = random.randint(9000, 15000) # random spawn time between 9 and 15 seconds
         self.last_spawn_time = pygame.time.get_ticks() # keep track of the last spawn time
         self.activated = False
+        self.isWindPlaying = False
         
     def update(self):
         current_time = pygame.time.get_ticks()
@@ -195,9 +207,14 @@ class Wind:
         if self.activated and pygame.time.get_ticks() - self.start_time < (random.randint(1000,2000) + (player.difficulty * 1000)): # The time of the wind increases by the difficulty
             screen.blit(self.image, (self.x, self.y))
             self.resistance = 2 # Resistance when the wind is up
+            if not self.isWindPlaying:
+                windSound.play()
+                self.isWindPlaying = True
         else:
             self.activated = False
             self.resistance = 0 # Resistance when the wind is down
+            windSound.stop()
+            self.isWindPlaying = False
         
             
 ################################ DRONE ################################
@@ -209,6 +226,7 @@ class Drone(object):
         self.spawn_timer = random.randint(20000, 30000) # random spawn time between 20 and 30 seconds
         self.last_spawn_time = pygame.time.get_ticks() # keep track of the last spawn time
         self.activated = False
+        self.isDronePlaying = False
 
     def update(self):
         current_time = pygame.time.get_ticks()
@@ -218,12 +236,17 @@ class Drone(object):
             self.activated = True
             self.start_time = pygame.time.get_ticks()
             hearts.append(Heart(self.x, self.y)) #create a heart when drone is activated
+            if not self.isDronePlaying:
+                droneSound.play()
+                self.isDronePlaying = True
         if self.activated and self.x > -(self.image.get_width()):
             screen.blit(self.image, (self.x, self.y))
             self.x -= 3 + player.difficulty # The speed increases by the difficulty
         else:
             self.activated = False
             self.x = 1100
+            droneSound.stop()
+            self.isDronePlaying = False
             
 # Heart dropped by the drone
 class Heart(object):
@@ -255,6 +278,7 @@ class Heart(object):
         if self.collider.colliderect(player.collider) and self.activated:
             self.activated = False
             player.lives += 1
+            life_gained.play()
         rect = self.image.get_rect()
         rect.center = (self.x, self.y)
         screen.blit(self.image, rect) # blit rotated image to screen
@@ -305,19 +329,23 @@ while True:
             # Highligh the selected button
             if event.key == pygame.K_UP:
                 # Highlight the start button
+                buttonsSound.play()
                 selected_button = "start"
             elif event.key == pygame.K_DOWN:
                 # Highlight the exit button
+                buttonsSound.play()
                 selected_button = "exit"
             
             # Pressed a button
             if selected_button == "start":
                 # If start is pressed
                 if event.key == pygame.K_RETURN:
+                    buttonsSound.play()
                     not_start = False
             elif selected_button == "exit":
                 # If Exit is pressed
                 if event.key == pygame.K_RETURN:
+                    buttonsSound.play()
                     pygame.quit()
                     exit()
         
@@ -393,6 +421,7 @@ while True:
                 corns.pop(corns.index(c))
             if c.collider.colliderect(player.collider):
                 corns.pop(corns.index(c))
+                corn_collected.play()
                 player.score += 1
                 if player.score % 10 == 0:
                     player.difficulty += 1
@@ -409,6 +438,8 @@ while True:
                 Hot_Ballon_list.pop(Hot_Ballon_list.index(o))
             if o.collider.colliderect(player.collider):
                 Hot_Ballon_list.pop(Hot_Ballon_list.index(o))
+                explosion.play()
+                life_lost.play()
                 player.lives -= 1
             o.draw()
             
@@ -423,6 +454,7 @@ while True:
                 Blade_list.pop(Blade_list.index(b))
             if b.collider.colliderect(player.collider):
                 Blade_list.pop(Blade_list.index(b))
+                life_lost.play()
                 player.lives -= 1
             b.draw()
             
@@ -451,6 +483,7 @@ while True:
         
         # Check if the player have more lives
         if player.lives == 0:
+            game_over.play()
             alive = False
             
         # Update the display
